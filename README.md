@@ -132,6 +132,35 @@ The response will be a signed JSON Web Token with MIME type `application/jwt`. N
 Nested signed metadata statements are described [in OpenID Connect Federation](http://openid.net/specs/openid-connect-federation-1_0.html).
 
 
+## Metadata Statements issued about clients
+
+
+Metadata statements MUST include:
+
+* `client_id`
+* `redirect_uri`
+* `scopes`
+
+Metadata statements SHOULD include:
+
+* ``
+
+
+
+
+## Metadata Statements issued about clients
+
+Metadata statements MUST include:
+
+* `issuer`
+
+Metadata statements SHOULD include:
+
+* ``
+
+
+
+
 ## ISSUES TBD
 
 How to resolve:
