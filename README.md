@@ -8,6 +8,8 @@ This is a draft note describing an alternative approach to OpenID Connect Federa
 * Reduces the amount of state necessary to be kept both in clients and providers.
 
 
+![](./img/overview.png)
+
 
 ## 1. Client configures a key pair to use with OpenID Connect
 
