@@ -40,25 +40,22 @@ Using some kind of discovery process the client selects an OpenID Connect Provid
 
 Discovery process is specified [in OpenID Connect Core](http://openid.net/specs/openid-connect-core-1_0.html).
 
-Including Provider Metadata statement in the discovery response is described [in OpenID Connect Federation](http://openid.net/specs/openid-connect-federation-1_0.html).
+Including Provider Metadata statement in the discovery response as described [in OpenID Connect Federation](http://openid.net/specs/openid-connect-federation-1_0.html).
 
 
 ## 4. Client sends an authentication request
 
 
 ```
-GET /authorize?
-    response_type=code
-    &scope=openid%20profile%20email
-    &client_id=https%3A%2F%2Fserviceprovider.org%2Fapplication
-    &state=7582e571-3fe7-415f-9add-cea770d76324
-    &redirect_uri=https%3A%2F%serviceprovider.org/application%2Fcallback HTTP/1.1
-  Host: provider.org
+GET /authorize?request=eyJhbGciOiJSUzI1NiIsImtpZCI6ImsyYmRjIn0.ew0KICJpc3Mi...
+  &response_type=code
+  &client_id=https%3A%2F%2Fserviceprovider.org%2Fapplication
+  &redirect_uri=https%3A%2F%serviceprovider.org/application%2Fcallback HTTP/1.1
+Host: provider.org
 ```
 
-If the client would like to send a [signed authentication request as described in *OpenID Connect Core section 6*](http://openid.net/specs/openid-connect-core-1_0.html#JWTRequests), it MUST sign the request using the same key pair as defined in section 1.
+The client MUST send a [signed authentication request as described in *OpenID Connect Core section 6*](http://openid.net/specs/openid-connect-core-1_0.html#JWTRequests). It MUST sign the request using the same key as described in section 1 in this document.
 
-A deployment profile in a federation MAY require the request to be signed.
 
 ## 5. Provider receives the authentication request
 
@@ -134,6 +131,36 @@ The response will be a signed JSON Web Token with MIME type `application/jwt`. N
 Nested signed metadata statements are described [in OpenID Connect Federation](http://openid.net/specs/openid-connect-federation-1_0.html).
 
 
+## 8. Provider redirects user back to client
+
+No specific changes in this part. The trusted `redirect_uri` included in the request and defined in the Metadata Statement is used.
+
+## 9. Client sends authenticated request to the token endpoint
+
+In the authorization code flow, the client uses the token endpoint to obtain the OAuth Access Token and the OIDC ID Token.
+
+The client MUST authenticate the request towards the OP, but does not have any client_secret. Instead the client MUST authenticate the request using the key pair described in section 1. The client MUST authenticate the request by including the `private_key_jwt` parameter described in [OpenID Connect Core Section 9](http://openid.net/specs/openid-connect-core-1_0.html#ClientAuthentication).
+
+The `aud` parameter of the generated JWT MUST equal the OP `issuer`.
+
+
+Here is an example:
+
+```
+POST /token HTTP/1.1
+Host: server.example.com
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=authorization_code&
+  code=791222e0-bd67-40f9-8c41-4dd65a9ea33d&
+  client_id=https%3A%2F%2Fserviceprovider.org%2Fapplication&
+  client_assertion_type=
+  urn%3Aietf%3Aparams%3Aoauth%3Aclient-assertion-type%3Ajwt-bearer&
+  client_assertion=PHNhbWxwOl ... ZT
+```
+
+
+
 ## Metadata Statements issued about clients
 
 
@@ -142,6 +169,8 @@ Metadata statements MUST include:
 * `client_id`
 * `redirect_uri`
 * `scopes`
+* Somehow the client MUST indicate whether or not it will be allowed to send unsigned authentication requests.
+
 
 Metadata statements SHOULD include:
 
@@ -159,12 +188,3 @@ Metadata statements MUST include:
 Metadata statements SHOULD include:
 
 * ``
-
-
-
-
-## ISSUES TBD
-
-How to resolve:
-
-* authentication to the token endpoint.
