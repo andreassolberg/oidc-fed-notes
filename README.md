@@ -1,6 +1,6 @@
 # OpenID Connect Federation
 
-This is a draft note describing an alternative approach to OpenID Connect Federation. Here are some highlights:
+This is a draft note describing an alternative approach to parts of the [OpenID Connect Federation spec](http://openid.net/specs/openid-connect-federation-1_0.html). Here are some highlights:
 
 * Enforces use of asymmetric crypto for clients
 * Allows use of out of regular OpenID Connect without specific support for «Federation»
