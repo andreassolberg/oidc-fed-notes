@@ -1,0 +1,885 @@
+<?xml version="1.0" encoding="US-ASCII"?>
+<?xml-stylesheet type='text/xsl' href='http://xml2rfc.tools.ietf.org/authoring/rfc2629.xslt' ?>
+<!DOCTYPE rfc PUBLIC "-//IETF//DTD RFC 2629//EN"
+"http://xml2rfc.tools.ietf.org/authoring/rfc2629.dtd">
+<!--
+  NOTE:  This XML file is input used to produce the authoritative copy of an
+  OpenID Foundation specification.  The authoritative copy is the HTML output.
+  This XML source file is not authoritative.  The statement ipr="none" is
+  present only to satisfy the document compilation tool and is not indicative
+  of the IPR status of this specification.  The IPR for this specification is
+  described in the "Notices" section.  This is a public OpenID Foundation
+  document and not a private document, as the private="..." declaration could
+  be taken to indicate.
+-->
+<rfc category="std" docName="openid-connect-federation-async" ipr="none">
+  <?rfc toc="yes" ?>
+
+  <?rfc tocdepth="5" ?>
+
+  <?rfc symrefs="yes" ?>
+
+  <?rfc sortrefs="yes"?>
+
+  <?rfc strict="yes" ?>
+
+  <?rfc iprnotified="no" ?>
+
+  <?rfc private="Draft" ?>
+
+  <front>
+    <title abbrev="OpenID Connect Federation Async 1.0">OpenID Connect
+    Federation Async 1.0 - draft 01</title>
+
+    <author fullname="Andreas &Aring;kre Solberg" initials="A.&Aring;.S"
+            surname="Solberg">
+      <organization abbrev="Uninett">UNINETT AS</organization>
+
+      <address>
+        <email>andreas.solberg@uninett.no</email>
+
+        <uri>http://uninett.no</uri>
+      </address>
+    </author>
+
+    <author fullname="Roland Hedberg" initials="R." role="editor"
+            surname="Hedberg">
+      <organization>independent</organization>
+
+      <address>
+        <email>roland@catalogix.se</email>
+      </address>
+    </author>
+
+    <date day="18" month="September" year="2017"/>
+
+    <workgroup>OpenID Connect Working Group</workgroup>
+
+    <abstract>
+      <t>Some use cases, often referred to as Identity Federations, involves a
+      large set of RPs to communicate with a large set of OPs. Manually
+      configuring trust and configuration between all these combinations does
+      not scale, hence the need for a scalable technical mechanism of
+      implicitly expressing trust.</t>
+
+      <t>This specification defines a way for an OpenID Connect Client and an
+      OpenID Connect Provider to establish trust and communicate based upon
+      issued statements from a trusted third party. </t>
+    </abstract>
+  </front>
+
+  <middle>
+    <section anchor="Introduction" title="Introduction">
+      <t>OpenID Connect 1.0 is a simple identity layer on top of the OAuth 2.0
+      <xref target="RFC6749"/> protocol. The <xref target="OpenID.Core">OpenID
+      Connect Core specification</xref> allows preconfigured entities RPs and
+      OPs to interoperate. The <xref target="OpenID.Discovery">OpenID Connect
+      Discovery </xref> adds the ability for the RP to aided by the end user
+      discover the configuration of any OP of the users choice. When the RP
+      has the configuration from the Discovery response, it may use the <xref
+      target="OpenID.Registration">OpenID Dynamic Registration </xref> to
+      register the RP configuration by the relevant OP before sending the
+      authentication request. Together these standards fully support the need
+      for dynamically establishing interop between a large set of RPs and OPs,
+      however neigther of these standards include any trust framework that the
+      entities might want to use as a base for deciding whether or not to
+      establish a trusted relationship by eigther issuing or comsuming
+      information about authenticated users. This specification defines such a
+      trust framework.</t>
+
+      <t>In addition to a trust framework, this specification also defines a
+      way for a RP to announce its configuration through the use of
+      .well-known location, similar to that of the OP. This implies that an RP
+      uses the same configuration for all OPs. But it also results in far less
+      state needs to be kept for both OPs and RPs. The fact that RP and OP
+      both have global configuration means that they cannot share secrets,
+      hence the need for the RP to only rely on asymmetric crypto for
+      authentication (more on this in section ..).</t>
+
+      <section anchor="rnc" title="Requirements Notation and Conventions">
+        <t>The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT",
+        "SHOULD", "SHOULD NOT", "RECOMMENDED", "NOT RECOMMENDED", "MAY", and
+        "OPTIONAL" in this document are to be interpreted as described in
+        <xref target="RFC2119">RFC 2119</xref>.</t>
+
+        <t>In the .txt version of this specification, values are quoted to
+        indicate that they are to be taken literally. When using these values
+        in protocol messages, the quotes MUST NOT be used as part of the
+        value. In the HTML version of this specification, values to be taken
+        literally are indicated by the use of <spanx style="verb">this fixed-width font</spanx>.</t>
+      </section>
+
+      <section anchor="Terminology" title="Terminology">
+        <t>This specification uses the terms "Authorization Server", "Client",
+        "Client Identifier", and "Redirection URI" defined by <xref
+        target="RFC6749">OAuth 2.0</xref>, the term "User Agent" defined by
+        <xref target="RFC7230">RFC 7230</xref>, and the terms defined by <xref
+        target="OpenID.Core">OpenID Connect Core 1.0</xref>.</t>
+
+        <t>This specification also defines the following terms: <list
+            style="hanging">
+            <t hangText="Session"><vspace/> Continuous period of time during
+            which an End-User accesses a Relying Party relying on the
+            Authentication of the End-User performed by the OpenID
+            Provider.</t>
+
+            <t hangText="Session ID"><vspace/> Identifier for a Session.</t>
+          </list></t>
+      </section>
+    </section>
+
+    <section anchor="RP"
+             title="OpenID Connect Client Preparations and Requirements">
+      <t>There are a few requirements and preparations for the OpenID Connect
+      Client, in order to start using the OpenID Connect Federation spec. This
+      includes specific rules for choosing the client_id, hosting the
+      configuration and the use of assymetric crypto for authentication.</t>
+
+      <section title="The use of client_id">
+        <t>In order for a client to indicate support for <xref
+        target="ClientDiscovery">Client Discovery</xref> the client MUST use a
+        <spanx style="verb">client_id</spanx> formed as a URL that uses the
+        "https" scheme and has no query or fragment components. Multiple
+        client_ids may share the same hostname, the WebFinger protocol will
+        handle the ability to resolve the correct OAuth client metadata for
+        the corresponding <spanx style="verb">client_id</spanx>.</t>
+      </section>
+
+      <section title="The use of assymmetric crypto">
+        <t>For RPs to interoperate with OPs without a registraion phase that
+        allows for establishing a shared secret, the RP is enforced to make
+        use of assymmetric crypto.</t>
+
+        <t>A client may in example create an RSA keypair, and share its public
+        key like this:</t>
+
+        <figure>
+          <artwork>{
+  "kty": "RSA",
+  "kid": "https://serviceprovider.org/application#1",
+  "n": "l7rt1yRvbiOKg8XeP_ICo0yDif-kOLWkUL5FAWKVWhWWAdnN2o1t_otuBX1xLeItE24he4qGHBzh2PQ4SRqau6ZVzx4-aJFzGZSbw6SswVXPlFR5dRkJMn4wxFOOVsSUnltO4K27X2Pf-gwlLFdH4q4QTNU5U8ijr76BnuUThdBYrxf2UQT7DDz6cPHaRdOUbuj_Ids9CmV6HyzdIFOfBx7DKS8o2fqH9Fa6-PKdMtDJiZ1KfjgstiNB04JAbQ1RI9Bl-No6NTUcZbD7Q0JF8iqY3Hogo9J_mL-SgQFGgwAoxQKoNeLk7uLHc69yIlyBJegrVkmHUKehIp3OZ5CW9w",
+  "e": "AQAB"
+}</artwork>
+        </figure>
+
+        <section title="Authentication at the Token Endpoint">
+          <t>In the authorization code flow, the client uses the token
+          endpoint to obtain the OAuth Access Token and the ID Token.</t>
+
+          <t>The client MUST authenticate the request towards the OP, but does
+          not have any client_secret. Instead the client MUST authenticate the
+          request using the key pair described in section 1. The client MUST
+          authenticate the request by including the private_key_jwt parameter
+          described in OpenID Connect Core Section 9.</t>
+
+          <t>The aud parameter of the generated JWT MUST equal the OP
+          issuer.</t>
+
+          <t>Here is an example:</t>
+
+          <figure>
+            <artwork>POST /token HTTP/1.1
+Host: server.example.com
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=authorization_code&amp;
+  code=791222e0-bd67-40f9-8c41-4dd65a9ea33d&amp;
+  client_id=https%3A%2F%2Fserviceprovider.org%2Fapplication&amp;
+  client_assertion_type=s
+  urn%3Aietf%3Aparams%3Aoauth%3Aclient-assertion-type%3Ajwt-bearer&amp;
+  client_assertion=PHNhbWxwOl ... ZT</artwork>
+          </figure>
+        </section>
+      </section>
+
+      <section title="???"/>
+    </section>
+
+    <section anchor="ClientDiscovery" title="Client Discovery">
+      <t>OpenID Connect Federation uses the following discoverable rel value
+      in WebFinger [RFC7033]: </t>
+
+      <t><spanx style="verb">http://openid.net/specs/connect/1.0/provider</spanx></t>
+
+      <t>The provider performs normalization rules to the client_id to
+      determine the hostname. The client_id URL will be the resource.</t>
+
+      <t>In example the client_id https://serviceprovider.org/application may
+      result in the following WebFinger request:</t>
+
+      <figure>
+        <artwork>GET /.well-known/webfinger?
+  resource=https%3A%2F%2Fserviceprovider.org%2Fapplication&amp;
+  rel=http%3A%2F%2Fopenid.net%2Fspecs%2Fconnect%2F1.0%2Fprovider
+  HTTP/1.1
+Host: example.com</artwork>
+      </figure>
+
+      <t>The response may include a link for every federation root that has a
+      metadata statement about the client. Each link SHOULD include a property
+      that identifies the trust root of this federation. This aids the
+      provider to fetch and process only relevant metadata. The property
+      <spanx style="verb">http://openid.net/specs/connect/1.0/federation</spanx>
+      is reserved for this purpose.</t>
+
+      <figure>
+        <artwork>HTTP/1.1 200 OK
+Access-Control-Allow-Origin: *
+Content-Type: application/jrd+json
+
+{
+  "subject" : "https://serviceprovider.org/application",
+  "links" :
+  [
+    {
+      "rel" : "http://openid.net/specs/connect/1.0/provider",
+      "href" : "https://metadata.feide.no/237645",
+      "properties": {
+        "http://openid.net/specs/connect/1.0/federation": "https://feide.no"
+      }
+    },
+    {
+      "rel" : "http://openid.net/specs/connect/1.0/provider",
+      "href" : "https://mds.edugain/openid/238476238764",
+      "properties": {
+        "http://openid.net/specs/connect/1.0/federation": "https://edugain.org"
+      }
+    },
+    {
+      "rel" : "http://openid.net/specs/connect/1.0/provider",
+      "href" : "https://openid.clarin.org/entries/123",
+      "properties": {
+        "http://openid.net/specs/connect/1.0/federation": "https://clarin.org"
+      }
+    }
+  ]
+}</artwork>
+      </figure>
+
+      <t>The metadata document MAY be hosted by the client it self or by the
+      federation provider registry or anywhere else.</t>
+    </section>
+
+    <section anchor="entity_metadata" title="Metadata Statement">
+      <t><spanx style="emph">NOTE: THIS SECTION IS COPIED FROM openid-connect-federation-1_0. Metadata Statements could potentially be separated into a separate specification, because it is useful in many different use cases.</spanx></t>
+
+      <t>A metadata statement asserts metadata values about an entity (relying
+      party or provider).</t>
+
+      <section title="Metadata Common to All Entities">
+        <t>These extra metadata parameters appear in both provider and relying
+        party metadata statements:</t>
+
+        <t><list style="hanging">
+            <t hangText="signing_keys"><vspace/> OPTIONAL. A <xref
+            target="RFC7517">JSON Web Key Set (JWKS) </xref> representing the
+            public part of the entity's signing keys. <vspace blankLines="1"/>
+            The keys that can be found here or at <spanx style="verb">signing_keys_uri</spanx>
+            must not be confused with the keys that an OIDC entity is using
+            for Authorization/AccessToken/RefreshToken/UserInfo requests and
+            responses. Those keys are found at <spanx style="verb">jwks_uri</spanx>
+            or in the case of relying party registration also possibly as
+            values to <spanx style="verb">jwks</spanx>. The signing keys are
+            used to sign metadata statements and can also be used by an OP to
+            sign a relying party registration request response.</t>
+
+            <t hangText="signing_keys_uri"><vspace/> OPTIONAL. Location where
+            a JWKS representing the public part of the entity's signing keys
+            can be found. SHOULD return the Content-Type "application/jose" to
+            indicate that the JWKS is in the form of a <xref
+            target="RFC7515">JSON Web Signature (JWS) </xref> using the JWS
+            Compact Serialization. The signing key used to sign the JWKS
+            belongs to the immediate superior. That is, the entity that signs
+            this entity's metadata statement also signs the JWKS stored at
+            <spanx style="verb">signing_keys_uri</spanx>.</t>
+
+            <t hangText="metadata_statements"><vspace/> OPTIONAL. JSON object
+            where the names are federation identifiers and the values a signed
+            JSON documents containing compounded metadata statements rooted in
+            that federation. There is one value per name.</t>
+
+            <t hangText="metadata_statement_uris"><vspace/> OPTIONAL. JSON
+            object where the names are the federation identifiers and the
+            values are URLs pointing to a compounded metadata statement (CMS)
+            rooted in that federation. Each URL points to just one CMS.</t>
+
+            <t hangText="signed_jwks_uri"><vspace/> OPTIONAL. This is the
+            signed version of the <spanx style="verb">jwks_uri</spanx>
+            parameter defined in <xref target="OpenID.Registration"> OpenID
+            Connect Dynamic Client Registration 1.0</xref>. SHOULD return the
+            Content-Type "application/jose" to indicate that the JWKS is in
+            the form of a JWS using the JWS Compact Serialization. The key
+            used to sign the JWKS can be found in <spanx style="verb">signing_keys</spanx>
+            or <spanx style="verb">signing_keys_uri</spanx>.</t>
+
+            <t hangText="federation_usage"><vspace/> OPTIONAL. Metadata
+            statements that are used in different contexts will contain
+            different parameters. For example, information that an OP
+            publishes about itself is not the same as what an RP wants to
+            register. This together with the differences in the roles between
+            an OP and an RP, means that policies for RPs will not be the same
+            as for OPs. There is therefore a need for tagging the Metadata
+            statement such that a Metadata statement intended to be used in
+            one context cannot be used in another. This is the reason for the
+            <spanx style="verb">federation_usage</spanx> parameter. This
+            parameter can be used to limit the usage to a specific context.
+            The <spanx style="verb">federation_usage</spanx> value is a case
+            sensitive string. The values specified in this document are
+            'discovery', 'registration' and 'response'. The corresponding
+            contexts are: <list style="hanging">
+                <t hangText="discovery"><vspace/> <xref
+                target="OpenID.Discovery"> Provider Information Discovery
+                Response </xref></t>
+
+                <t hangText="registration"><vspace/> <xref
+                target="OpenID.Registration"> Client Registration Request
+                </xref></t>
+
+                <t hangText="response"><vspace/> <xref
+                target="OpenID.Registration"> Client Registration Request
+                response </xref></t>
+              </list></t>
+          </list></t>
+
+        <t>Metadata statements and signing keys can be transferred in two
+        different ways: either by including the information in the statement,
+        or by providing a URI that points to the information. How metadata
+        statements and signing keys are transferred is independent of each
+        other.</t>
+
+        <t>If both <spanx style="verb">jwks_uri</spanx> and <spanx
+        style="verb">signed_jwks_uri</spanx> are present, which they might be
+        for backward compatibility reasons, then <spanx style="verb">signed_jwks_uri</spanx>
+        SHOULD be preferred.</t>
+
+        <t>Metadata statements that do not contain <spanx style="verb">metadata_statements</spanx>
+        or <spanx style="verb">metadata_statement_uris</spanx> are called
+        level 0 metadata statements.</t>
+
+        <t>An OP MUST sign its JWKs and therefore publish a signed_jwks_uri.
+        An RP that is able to handle secrets MUST also sign its JWKS and
+        publish a signed_jwks_uri.</t>
+      </section>
+
+      <section title="Specific Client Metadata">
+        <t>All parameters defined in section 2 of <xref
+        target="OpenID.Registration"> OpenID Connect Dynamic Client
+        Registration 1.0 </xref> are allowed in a metadata statement.</t>
+
+        <t>To that list is added: <list style="hanging">
+            <t hangText="rp_scopes"><vspace/> RECOMMENDED. JSON array
+            containing a list of the <xref target="RFC6749">RFC6749</xref>
+            scope values that this relying party expects to use.</t>
+
+            <t hangText="rp_claims"><vspace/> RECOMMENDED. JSON array
+            containing a list of the Claim Names of the Claims that the OpenID
+            Client wants values for.</t>
+          </list></t>
+      </section>
+
+      <section title="Specific Provider Metadata">
+        <t>All parameters defined in section 3 of <xref
+        target="OpenID.Discovery"> OpenID Connect Discovery 1.0 </xref></t>
+      </section>
+
+      <section title="Compounded Metadata Statement">
+        <section anchor="components" title="Basic components">
+          <t>To describe Compounded Metadata Statements, we need a way of
+          describing the different components in such a statement. These are
+          the basic components: <list style="hanging">
+              <t hangText="ms_X"><vspace/> Metadata Statement signing request
+              by X without signing keys and signed metadata statements.</t>
+
+              <t hangText="SK[X]"><vspace/> Signing keys that belongs to X</t>
+
+              <t hangText="X(MS)"><vspace/> Metadata Statement signed by X</t>
+            </list></t>
+
+          <t anchor="Level0SMS">Using these basic components, we can now
+          describe a simple signed Metadata Statement as: <figure>
+              <artwork>A(ms_B + SK[B])</artwork>
+            </figure> B being the entity that requested a signature by A of
+          B's metadata statement and signing keys.</t>
+
+          <t>Creating a compounded metadata statements involves adding
+          previously signed metadata statements to the request before signing
+          it. So if we start off with C sending this signing request to B,
+          <figure>
+              <artwork>(ms_C + SK[C])</artwork>
+            </figure> then B may want to add the signed metadata statement it
+          received from A before signing. So we first get: <figure>
+              <artwork>(ms_C + SK[C] + A(ms_B + SK[B]))</artwork>
+            </figure> which is then signed by B before being returned to
+          C.</t>
+
+          <t anchor="Level1SMS">This is the resulting compounded metadata
+          statement: <figure>
+              <artwork>B(ms_C + SK[C) + A(ms_B + SK[B]))</artwork>
+            </figure> Here we have three entities involved: A which is the top
+          level entity (the federation operator) a second level entity (B)
+          representing a federation member and C which could be an entity
+          within the federation like an OP or an RP owned/controlled by B. If
+          we assume that C is an RP then ms_C would typically be a relying
+          party registration request and SK[C] would be the signing keys that
+          the RP used to sign the JWKS placed at signed_jwks_uri. The
+          statement signed by A (ms_b + SK[B]) would contain metadata common
+          to all RPs owned by the member (ms_B) and the signing key (SK[B])
+          that the member uses to sign requests from the member's RPs.</t>
+
+          <t>Note that the level N requester is the level N+1 signer.</t>
+        </section>
+
+        <section title="Relationship between Metadata Statements">
+          <t>The metadata for each entity in the federation is described by
+          one or more metadata statements (for example, ms_0, ms_1, ...,
+          ms_n). ms_0 (the level 0 metadata statement mentioned above) would
+          be the most generic, and ms_1, ..., ms_n would in turn be
+          successively more specific. ms_0 would typically contain information
+          that belongs to the organization, for instance <spanx style="verb">tos_uri</spanx>,
+          <spanx style="verb">contacts</spanx> and the like, while ms_n would
+          contain information that belongs to one specific entity like <spanx
+          style="verb">authorization_endpoint</spanx> for an OP or <spanx
+          style="verb">redirect_uris</spanx> for a RP.</t>
+
+          <t><figure>
+              <preamble>The following is a non-normative example of a
+              compounded metadata statement. Also note that the
+              metadata_statement MUST be a signed JWT. In this example, the
+              only the parts of the signed JWT payload pertinent to the
+              example are shown.</preamble>
+
+              <artwork>
+{
+  "redirect_uris": ["https://example.com/rp1"],
+  "metadata_statements": {
+    'https://example.com':
+      {
+        "scope": "openid eduperson",
+        "response_types": ["code", "code id_token"],
+        "contacts": ["rp_helpdesk@example.com"],
+        "redirect_uris": ["https://example.com/rp1"],
+        "response_types: ["code"]
+        "metadata_statements" : {
+          'https://example.com':
+            {
+              "logo_uri": "https://example.com/logo.jpg",
+              "policy_uri": "https://example.com/policy.html",
+              "tos_uri": "https://example.com/tos.html"
+            }
+         }
+      }
+   }
+}
+            </artwork>
+            </figure></t>
+        </section>
+      </section>
+    </section>
+
+    <section title="Federated Authentication Flow ">
+      <t>In this section we describe the Federated Authentication Flow, which
+      defines a set of rules of how the RP and OP interoperate in order to
+      authenticate the user. This flow does not require that the RP and OP has
+      exchanged any information in advance. Trust and configuration is
+      automatically and implicitly inherited as part of the flow.</t>
+
+      <t>The federated flow goes through the following steps:<list
+          style="numbers">
+          <t>Client with the aid of the end-user decides which OpenID Connect
+          provider to use, and uses <xref target="OpenID.Discovery">OpenID
+          Connect Discovery</xref> to discover the configuration of the chosen
+          OP.</t>
+
+          <t>Client looks for Metadata Statements in the provider
+          configuration, and processes the signature and relates it to the
+          local configured trust root. The client may at this point decide to
+          not trust the provider, and stop further processing.</t>
+
+          <t>Client prepares an Authentication Request using a client_id that
+          can be used to discover the client configuration</t>
+
+          <t>Client sends the request to the Authorization Server</t>
+
+          <t>Authorization Server reckognizes the client_id to be an URL, and
+          assumes that the client supports Client Discovery.</t>
+
+          <t>Authorization Server uses WebFinger to find the location of the
+          client configuration</t>
+
+          <t>Authorization Server looks for Metadata Statements in the
+          discovered configuration, and processes the signature and relates it
+          to the local configured trust root. The authorization server may at
+          this point decide to not trust the client, and stop further
+          processing.</t>
+
+          <t>Authorization Server obtains End-User Consent/Authorization</t>
+
+          <t>Authorization Server sends the End-User back to the Client with a
+          code, idtoken and or access depending on the supported and chosen
+          respone_type and flows defined in other flows.</t>
+
+          <t>If the client chooses to use a flow which result in resolving a
+          code, the client MUST authenticate towards the token endpoint using
+          a key that matches one of the public keys distributed through Client
+          Discovery.</t>
+        </list></t>
+
+      <section title="Client discovers the Provider">
+        <t>The client need to know which OP to contact. Aided by the end-user,
+        the client will resolve the correct OpenID Connect Provider
+        configuration using <xref target="OpenID.Discovery">OpenID Connect
+        Discovery</xref>.</t>
+      </section>
+
+      <section title="Client processes Metadata Statements">
+        <t/>
+      </section>
+
+      <section title="Client sending an Authentication Request">
+        <t/>
+      </section>
+
+      <section title="Provider validates the Authentication Request"/>
+    </section>
+
+    <section anchor="Security" title="Security Considerations">
+      <t>which Collisions between Session IDs and the guessing of their values
+      by attackers are prevented by including sufficient entropy in Session ID
+      values.</t>
+    </section>
+
+    <section anchor="IANA" title="IANA Considerations">
+      <section anchor="ClaimsRegistration"
+               title="JSON Web Token Claims Registration">
+        <t>This specification registers the following Claim in the IANA "JSON
+        Web Token Claims" registry <xref target="IANA.JWT.Claims"/>
+        established by <xref target="JWT"/>.</t>
+
+        <section anchor="ClaimsContents" title="Registry Contents">
+          <t><?rfc subcompact="yes"?> <list style="symbols">
+              <t>Claim Name: <spanx style="verb">sid</spanx></t>
+
+              <t>Claim Description: Session ID</t>
+            </list></t>
+        </section>
+
+        <?rfc subcompact="no"?>
+      </section>
+
+      <section anchor="DynRegRegistration"
+               title="OAuth Dynamic Client Registration Metadata Registration">
+        <t>This specification registers the following client metadata
+        definitions in the IANA "OAuth Dynamic Client Registration Metadata"
+        registry <xref target="IANA.OAuth.Parameters"/> established by <xref
+        target="RFC7591"/>:</t>
+
+        <section anchor="DynRegContents" title="Registry Contents">
+          <t><?rfc subcompact="yes"?> <list style="symbols">
+              <t>Client Metadata Name: <spanx style="verb">frontchannel_logout_uri</spanx></t>
+
+              <t>Client Metadata Description: RP URL that will cause the RP to
+              log itself out when rendered in an iframe by the OP</t>
+
+              <t>Change Controller: OpenID Foundation Artifact Binding Working
+              Group - openid-specs-ab@lists.openid.net</t>
+
+              <t>Specification Document(s): of this specification</t>
+            </list></t>
+
+          <t><list style="symbols">
+              <t>Client Metadata Name: <spanx style="verb">frontchannel_logout_session_required</spanx></t>
+
+              <t>Client Metadata Description: Boolean value specifying whether
+              the RP requires that a <spanx style="verb">sid</spanx> (session
+              ID) query parameter be included to identify the RP session with
+              the OP when the <spanx style="verb">frontchannel_logout_uri</spanx>
+              is used</t>
+
+              <t>Change Controller: OpenID Foundation Artifact Binding Working
+              Group - openid-specs-ab@lists.openid.net</t>
+
+              <t>Specification Document(s): of this specification</t>
+            </list></t>
+        </section>
+
+        <?rfc subcompact="no"?>
+      </section>
+    </section>
+  </middle>
+
+  <back>
+    <references title="Normative References">
+      <?rfc include="http://xml2rfc.tools.ietf.org/public/rfc/bibxml/reference.RFC.2119"?>
+
+      <?rfc include="http://xml2rfc.tools.ietf.org/public/rfc/bibxml/reference.RFC.3986"?>
+
+      <?rfc include="http://xml2rfc.tools.ietf.org/public/rfc/bibxml/reference.RFC.6749"?>
+
+      <?rfc include="http://xml2rfc.tools.ietf.org/public/rfc/bibxml/reference.RFC.7230"?>
+
+      <reference anchor="OpenID.Core"
+                 target="http://openid.net/specs/openid-connect-core-1_0.html">
+        <front>
+          <title>OpenID Connect Core 1.0</title>
+
+          <author fullname="Nat Sakimura" initials="N." surname="Sakimura">
+            <organization abbrev="NRI">Nomura Research Institute,
+            Ltd.</organization>
+          </author>
+
+          <author fullname="John Bradley" initials="J." surname="Bradley">
+            <organization abbrev="Ping Identity">Ping Identity</organization>
+          </author>
+
+          <author fullname="Michael B. Jones" initials="M.B." surname="Jones">
+            <organization abbrev="Microsoft">Microsoft</organization>
+          </author>
+
+          <author fullname="Breno de Medeiros" initials="B."
+                  surname="de Medeiros">
+            <organization abbrev="Google">Google</organization>
+          </author>
+
+          <author fullname="Chuck Mortimore" initials="C." surname="Mortimore">
+            <organization abbrev="Salesforce">Salesforce</organization>
+          </author>
+
+          <date day="8" month="November" year="2014"/>
+        </front>
+      </reference>
+
+      <reference anchor="OpenID.Discovery"
+                 target="http://openid.net/specs/openid-connect-discovery-1_0.html">
+        <front>
+          <title>OpenID Connect Discovery 1.0</title>
+
+          <author fullname="Nat Sakimura" initials="N." surname="Sakimura">
+            <organization abbrev="NRI">Nomura Research Institute,
+            Ltd.</organization>
+          </author>
+
+          <author fullname="John Bradley" initials="J." surname="Bradley">
+            <organization abbrev="Ping Identity">Ping Identity</organization>
+          </author>
+
+          <author fullname="Michael B. Jones" initials="M.B." surname="Jones">
+            <organization abbrev="Microsoft">Microsoft</organization>
+          </author>
+
+          <author fullname="Edmund Jay" initials="E." surname="Jay">
+            <organization abbrev="Illumila">Illumila</organization>
+          </author>
+
+          <date day="8" month="November" year="2014"/>
+        </front>
+      </reference>
+
+      <reference anchor="OpenID.Registration"
+                 target="http://openid.net/specs/openid-connect-registration-1_0.html">
+        <front>
+          <title>OpenID Connect Dynamic Client Registration 1.0</title>
+
+          <author fullname="Nat Sakimura" initials="N." surname="Sakimura">
+            <organization abbrev="NRI">Nomura Research Institute,
+            Ltd.</organization>
+          </author>
+
+          <author fullname="John Bradley" initials="J." surname="Bradley">
+            <organization abbrev="Ping Identity">Ping Identity</organization>
+          </author>
+
+          <author fullname="Michael B. Jones" initials="M.B." surname="Jones">
+            <organization abbrev="Microsoft">Microsoft</organization>
+          </author>
+
+          <date day="8" month="November" year="2014"/>
+        </front>
+      </reference>
+
+      <reference anchor="OpenID.Session"
+                 target="http://openid.net/specs/openid-connect-session-1_0.html">
+        <front>
+          <title>OpenID Connect Session Management 1.0</title>
+
+          <author fullname="Nat Sakimura" initials="N." surname="Sakimura">
+            <organization abbrev="NRI">Nomura Research Institute,
+            Ltd.</organization>
+          </author>
+
+          <author fullname="John Bradley" initials="J." surname="Bradley">
+            <organization abbrev="Ping Identity">Ping Identity</organization>
+          </author>
+
+          <author fullname="Michael B. Jones" initials="M.B." surname="Jones">
+            <organization abbrev="Microsoft">Microsoft</organization>
+          </author>
+
+          <author fullname="Breno de Medeiros" initials="B."
+                  surname="de Medeiros">
+            <organization abbrev="Google">Google</organization>
+          </author>
+
+          <author fullname="Chuck Mortimore" initials="C." surname="Mortimore">
+            <organization abbrev="Salesforce">Salesforce</organization>
+          </author>
+
+          <author fullname="Edmund Jay" initials="E." surname="Jay">
+            <organization abbrev="Illumila">Illumila</organization>
+          </author>
+
+          <date day="25" month="January" year="2017"/>
+        </front>
+      </reference>
+
+      <reference anchor="OpenID.BackChannel"
+                 target="http://openid.net/specs/openid-connect-backchannel-1_0.html">
+        <front>
+          <title>OpenID Connect Back-Channel Logout 1.0</title>
+
+          <author fullname="Michael B. Jones" initials="M.B." surname="Jones">
+            <organization abbrev="Microsoft">Microsoft</organization>
+          </author>
+
+          <author fullname="John Bradley" initials="J." surname="Bradley">
+            <organization abbrev="Ping Identity">Ping Identity</organization>
+          </author>
+
+          <date day="25" month="January" year="2017"/>
+        </front>
+      </reference>
+
+      <reference anchor="IANA.JWT.Claims"
+                 target="http://www.iana.org/assignments/jwt">
+        <front>
+          <title>JSON Web Token Claims</title>
+
+          <author>
+            <organization>IANA</organization>
+          </author>
+
+          <date/>
+        </front>
+      </reference>
+
+      <reference anchor="IANA.OAuth.Parameters"
+                 target="http://www.iana.org/assignments/oauth-parameters">
+        <front>
+          <title>OAuth Parameters</title>
+
+          <author>
+            <organization>IANA</organization>
+          </author>
+
+          <date/>
+        </front>
+      </reference>
+    </references>
+
+    <references title="Informative References">
+      <?rfc include="http://xml2rfc.tools.ietf.org/public/rfc/bibxml/reference.RFC.7591"?>
+
+      <reference anchor="JWT" target="http://tools.ietf.org/html/rfc7519">
+        <front>
+          <title>JSON Web Token (JWT)</title>
+
+          <author fullname="Michael B. Jones" initials="M.B." surname="Jones">
+            <organization abbrev="Microsoft">Microsoft</organization>
+          </author>
+
+          <author fullname="John Bradley" initials="J." surname="Bradley">
+            <organization abbrev="Ping Identity">Ping Identity</organization>
+          </author>
+
+          <author fullname="Nat Sakimura" initials="N." surname="Sakimura">
+            <organization abbrev="NRI">Nomura Research Institute,
+            Ltd.</organization>
+          </author>
+
+          <date month="May" year="2015"/>
+        </front>
+
+        <seriesInfo name="RFC" value="7519"/>
+
+        <seriesInfo name="DOI" value="10.17487/RFC7519"/>
+      </reference>
+    </references>
+
+    <section anchor="Acknowledgements" title="Acknowledgements">
+      <t>The OpenID Community would like to thank the following people for
+      their contributions to this specification:</t>
+
+      <t><list style="empty">
+          <t>Michael B. Jones (mbj@microsoft.com), Microsoft</t>
+
+          <t>Roland Hedberg (roland.hedberg@adm.umu.se)</t>
+        </list></t>
+    </section>
+
+    <section anchor="Notices" title="Notices">
+      <t>Copyright (c) 2017 The OpenID Foundation.</t>
+
+      <t>The OpenID Foundation (OIDF) grants to any Contributor, developer,
+      implementer, or other interested party a non-exclusive, royalty free,
+      worldwide copyright license to reproduce, prepare derivative works from,
+      distribute, perform and display, this Implementers Draft or Final
+      Specification solely for the purposes of (i) developing specifications,
+      and (ii) implementing Implementers Drafts and Final Specifications based
+      on such documents, provided that attribution be made to the OIDF as the
+      source of the material, but that such attribution does not indicate an
+      endorsement by the OIDF.</t>
+
+      <t>The technology described in this specification was made available
+      from contributions from various sources, including members of the OpenID
+      Foundation and others. Although the OpenID Foundation has taken steps to
+      help ensure that the technology is available for distribution, it takes
+      no position regarding the validity or scope of any intellectual property
+      or other rights that might be claimed to pertain to the implementation
+      or use of the technology described in this specification or the extent
+      to which any license under such rights might or might not be available;
+      neither does it represent that it has made any independent effort to
+      identify any such rights. The OpenID Foundation and the contributors to
+      this specification make no (and hereby expressly disclaim any)
+      warranties (express, implied, or otherwise), including implied
+      warranties of merchantability, non-infringement, fitness for a
+      particular purpose, or title, related to this specification, and the
+      entire risk as to implementing this specification is assumed by the
+      implementer. The OpenID Intellectual Property Rights policy requires
+      contributors to offer a patent promise not to assert certain patent
+      claims against other contributors and against implementers. The OpenID
+      Foundation invites any interested party to bring to its attention any
+      copyrights, patents, patent applications, or other proprietary rights
+      that may cover technology that may be required to practice this
+      specification.</t>
+    </section>
+
+    <section anchor="History" title="Document History">
+      <t>[[ To be removed from the final specification ]]</t>
+
+      <t>-02 <list style="symbols">
+          <t>Added explicit definitions for the <spanx style="verb">iss</spanx>
+          (issuer) and <spanx style="verb">sid</spanx> (session ID) query
+          parameters that are used with the logout URI.</t>
+        </list></t>
+
+      <t>-01 <list style="symbols">
+          <t>Scoped Session ID to be Issuer-specific, aligning it with the
+          back-channel logout usage.</t>
+
+          <t>Finished changing uses of "logout_uri" to
+          "frontchannel_logout_uri".</t>
+
+          <t>Removed references to terms that are not used.</t>
+        </list></t>
+
+      <t>-00 <list style="symbols">
+          <t>Renamed HTTP-Based Logout to Front-Channel Logout.</t>
+
+          <t>Created openid-connect-frontchannel-1_0 from
+          openid-connect-logout-1_0 draft 04.</t>
+
+          <t>Prefixed identifiers with "frontchannel_" to be parallel with the
+          Back-Channel Logout specification.</t>
+        </list></t>
+    </section>
+  </back>
+</rfc>
