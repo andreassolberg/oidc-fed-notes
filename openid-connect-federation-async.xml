@@ -737,23 +737,6 @@ Content-Type: application/jrd+json
         </front>
       </reference>
 
-      <reference anchor="OpenID.BackChannel"
-                 target="http://openid.net/specs/openid-connect-backchannel-1_0.html">
-        <front>
-          <title>OpenID Connect Back-Channel Logout 1.0</title>
-
-          <author fullname="Michael B. Jones" initials="M.B." surname="Jones">
-            <organization abbrev="Microsoft">Microsoft</organization>
-          </author>
-
-          <author fullname="John Bradley" initials="J." surname="Bradley">
-            <organization abbrev="Ping Identity">Ping Identity</organization>
-          </author>
-
-          <date day="25" month="January" year="2017"/>
-        </front>
-      </reference>
-
       <reference anchor="IANA.JWT.Claims"
                  target="http://www.iana.org/assignments/jwt">
         <front>
@@ -858,34 +841,6 @@ Content-Type: application/jrd+json
       specification.</t>
     </section>
 
-    <section anchor="History" title="Document History">
-      <t>[[ To be removed from the final specification ]]</t>
-
-      <t>-02 <list style="symbols">
-          <t>Added explicit definitions for the <spanx style="verb">iss</spanx>
-          (issuer) and <spanx style="verb">sid</spanx> (session ID) query
-          parameters that are used with the logout URI.</t>
-        </list></t>
-
-      <t>-01 <list style="symbols">
-          <t>Scoped Session ID to be Issuer-specific, aligning it with the
-          back-channel logout usage.</t>
-
-          <t>Finished changing uses of "logout_uri" to
-          "frontchannel_logout_uri".</t>
-
-          <t>Removed references to terms that are not used.</t>
-        </list></t>
-
-      <t>-00 <list style="symbols">
-          <t>Renamed HTTP-Based Logout to Front-Channel Logout.</t>
-
-          <t>Created openid-connect-frontchannel-1_0 from
-          openid-connect-logout-1_0 draft 04.</t>
-
-          <t>Prefixed identifiers with "frontchannel_" to be parallel with the
-          Back-Channel Logout specification.</t>
-        </list></t>
-    </section>
+    <section anchor="History" title="Document History"/>
   </back>
 </rfc>
