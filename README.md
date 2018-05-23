@@ -1,3 +1,7 @@
+
+* [https://oauth.no/openid-connect-federation-async-00.html](Here is a draft of this specification)
+
+
 # OpenID Connect Federation
 
 This is a draft note describing an alternative approach to parts of the [OpenID Connect Federation spec](http://openid.net/specs/openid-connect-federation-1_0.html). Here are some highlights:
