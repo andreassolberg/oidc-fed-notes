@@ -1,5 +1,5 @@
 
-* [https://oauth.no/openid-connect-federation-async-00.html](Here is a draft of this specification)
+[https://oauth.no/openid-connect-federation-async-00.html](Here is a draft of this specification)
 
 
 # OpenID Connect Federation
